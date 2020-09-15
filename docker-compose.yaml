@@ -1,0 +1,88 @@
+version: '3'
+services:
+  fluentd:
+    image: fluentd
+    container_name: fluentd
+    networks:
+      app:
+        ipv4_address: 172.16.238.10
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
+      - "9880:9880"
+    restart: always
+    volumes:
+      - "./fluentd:/fluentd/etc"
+
+  #redis:
+  #  image: "redis:alpine"
+  #  container_name: redis
+  #  depends_on:
+  #    - fluentd
+  #  logging:
+  #    driver: fluentd
+  #    options:
+  #      fluentd-address: "172.16.238.10:24224"
+  #      tag: redis.access
+  #      fluentd-async-connect: 'true'
+  #  networks:
+  #    app:
+  #      ipv4_address: 172.16.238.11
+  #  ports:
+  #    - "6379:6379"
+  #  restart: always
+
+  mongodb:
+    image: "mongo"
+    container_name: mongodb
+    depends_on:
+      - fluentd
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongodb
+      MONGO_INITDB_ROOT_PASSWORD: mongodb
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: "172.16.238.10:24224"
+        tag: mongodb.access
+        fluentd-async-connect: 'true'
+    networks:
+      app:
+        ipv4_address: 172.16.238.12
+    ports:
+      - "27017:27017"
+    restart: always
+
+  elasticsearch:
+    image: elasticsearch
+    container_name: elasticsearch
+    environment:
+      discovery.type: single-node
+    networks:
+      app:
+        ipv4_address: 172.16.238.13
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    restart: always
+
+
+  kibana:
+    image: kibana
+    container_name: kibana
+    networks:
+      app:
+        ipv4_address: 172.16.238.14
+    ports:
+      - "5601:5601"
+    restart: always
+    volumes:
+      - "./kibana:/etc/kibana/"
+
+# https://github.com/grafana/loki/issues/1368
+networks:
+  app:
+    ipam:
+      driver: default
+      config:
+        - subnet: "172.16.238.0/24"
